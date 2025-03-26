@@ -71,7 +71,6 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-
 def extract_site_fn(file_name):
     """ Extract the site name from the csv file name (assuming site name is before the first underscore).
 
@@ -84,7 +83,7 @@ def extract_site_fn(file_name):
     return site_name
 
 
-def concatenate_df_list(list_input): #, list_name):
+def concatenate_df_list(list_input):  # , list_name):
     """ Concatenate ODK csv outputs into a Pandas DataFrame.
 
     @param list_input: list object containing all located allometry biomass file paths.
@@ -107,13 +106,14 @@ def concatenate_df_list(list_input): #, list_name):
     return output_df
 
 
-def single_csv_fn(list_input): #, list_name):
+def single_csv_fn(list_input):  # , list_name):
     """ Create a Pandas DataFrame from a list with only one list element (csv path).
 
     @param list_input: list object containing all located integrated star transect OR RAS output file paths.
     @return df: Pandas dataframe containing the concatenated csv files from the input list
     """
-    for i in list_input: #, list_name):
+    for i in list_input:  # , list_name):
+        # print('148: ', i)
         df = pd.read_csv(i)
         # df.insert(0, "site", name, allow_duplicates=False)
 
@@ -145,6 +145,11 @@ def projection_file_name_fn(epsg, allometry_biomass_gdf):
     elif epsg_int == 32753:
         crs_name = 'WGS84z53'
         crs_output = {'init': 'EPSG:32753'}
+
+    elif epsg_int == 32754:
+        crs_name = 'WGS84z54'
+        crs_output = {'init': 'EPSG:32754'}
+
     elif epsg_int == 3577:
         crs_name = 'Albers'
         crs_output = {'init': 'EPSG:3577'}
@@ -158,10 +163,7 @@ def projection_file_name_fn(epsg, allometry_biomass_gdf):
 
     # Project DF to epsg value
     projected_df = allometry_biomass_gdf.to_crs(epsg)
-    #print(projected_df)
-
-    print(crs_name, crs_output)
-
+    # print(projected_df)
     return crs_name, crs_output, projected_df
 
 
@@ -182,9 +184,15 @@ def square_buffer_fn(projected_df, prime_temp_buffer_dir, crs_name):
 
     # print(projected_df)
     for i in projected_df.site.unique():
+        print(i)
         projected_df2 = projected_df.loc[projected_df.site == i]
         single_site = projected_df2.head(1)
         # print("single_site: ", single_site)
+
+        # for i in projected_df.uid.unique():
+        #     projected_df2 = projected_df.loc[projected_df.uid == i]
+        #     single_site = projected_df2.head(1)
+        #     # print("single_site: ", single_site)
 
         projected_df3 = single_site.buffer(50, cap_style=3)
 
@@ -199,16 +207,16 @@ def square_buffer_fn(projected_df, prime_temp_buffer_dir, crs_name):
 def add_site_attribute_fn(prime_temp_buffer_dir, buffer_temp_dir, crs_name):
     """ Retrieve file path for each 1ha shapefiles and add SITE_NAME and PROP_CODE attributes.
 
-    @param prime_temp_buffer_dir: string object containing the path to a sub-directory within the temporary directory.
-    @param buffer_temp_dir: string object containing the path to the sub-directory containing the 1ha site shapefiles.
+    @param prime_temp_buffer_dir: string object containing the path to a subdirectory within the temporary directory.
+    @param buffer_temp_dir: string object containing the path to the subdirectory containing the 1ha site shapefiles.
     @param crs_name: string object containing the crs name for file naming.
-    @return prime_temp_buffer_dir: string object containing the path to a sub-directory within the temporary directory.
+    @return prime_temp_buffer_dir: string object containing the path to a subdirectory within the temporary directory.
     """
 
-    # Create a string path to a sub-directory
+    # Create a string path to a subdirectory
     attribute_temp_dir = os.path.join(prime_temp_buffer_dir, '1ha_attribute', crs_name)
     # print("attribute_temp_dir: ", attribute_temp_dir)
-    # Check if the sub-directory already exists and create if if does not.
+    # Check if the subdirectory already exists and create if if does not.
     if not os.path.exists(attribute_temp_dir):
         os.makedirs(attribute_temp_dir)
 
@@ -218,6 +226,8 @@ def add_site_attribute_fn(prime_temp_buffer_dir, buffer_temp_dir, crs_name):
             # print("file", file)
             ends_with = '.shp'
             if file.endswith(ends_with):
+                # print("file ends with ", ends_with)
+                # split file name
                 list_file_variables = file.split('_')
                 # print(list_file_variables)
                 site_ = list_file_variables[0]
@@ -241,7 +251,7 @@ def add_site_attribute_fn(prime_temp_buffer_dir, buffer_temp_dir, crs_name):
 def concatenate_df_fn(prime_temp_buffer_dir, export_dir_path, crs_name):
     """  Concatenate attributed shapefiles and export completed shapefile.
 
-    @param prime_temp_buffer_dir: string object containing the path to a sub-directory within the temporary directory.
+    @param prime_temp_buffer_dir: string object containing the path to a subdirectory within the temporary directory.
     @param export_dir_path: string object containing the path to the export directory.
     @param crs_name: string object containing the standardised crs information to be used as part of the file/sub-dir.
     @return comp_geo_df: geo-dataframe created by the concatenation of all shapefiles located in the specified directory.
@@ -250,6 +260,8 @@ def concatenate_df_fn(prime_temp_buffer_dir, export_dir_path, crs_name):
 
     list_df2 = []
     search_term = '*.shp'
+
+    print("Search here: ", prime_temp_buffer_dir + '\\1ha_attribute\\' + crs_name + '\\' + search_term)
 
     for file in glob.glob(prime_temp_buffer_dir + '\\1ha_attribute\\' + crs_name + '\\' + search_term):
         geo_df = gpd.read_file(file)
@@ -289,8 +301,7 @@ def prop_code_extraction_fn(prop, pastoral_estate):
     return prop_code
 
 
-def main_routine(data, export_dir_path, prime_temp_buffer_dir):
-
+def main_routine(data, zone, export_dir_path, prime_temp_buffer_dir):
     df = pd.read_csv(data)
 
     # remove underscore from site name
@@ -304,17 +315,17 @@ def main_routine(data, export_dir_path, prime_temp_buffer_dir):
     gdf = gpd.GeoDataFrame(
         df, geometry=gpd.points_from_xy(df.lon_gda94, df.lat_gda94))
 
-    #print(gdf.crs)
+    # print(gdf.crs)
     gdf1 = gdf.set_crs(epsg=4283)
-    #print(gdf1.crs)
+    print(f"gdf shape before drop duplicates {gdf1.shape}")
 
-    geo_df2 = gdf1.drop_duplicates(keep="first") #subset=["site"], keep="first")
-    #print(geo_df2.shape)
-
+    geo_df2 = gdf1.drop_duplicates(keep="first")  # subset=["site"], keep="first")
+    # print(geo_df2.shape)
+    print(f"gdf shape after drop duplicates {geo_df2.shape}")
     geo_df2.reset_index(drop=True, inplace=True)
     geo_df2['uid'] = geo_df2.index + 1
 
-    #allometry_biomass_gdf = geo_df2
+    # allometry_biomass_gdf = geo_df2
 
     # Export shapefile.
     file_export = os.path.join(export_dir_path, 'allometry_biomass_output.shp')
@@ -322,27 +333,75 @@ def main_routine(data, export_dir_path, prime_temp_buffer_dir):
 
     geo_df2.to_file(file_export, driver='ESRI Shapefile')
 
-    # set epsg to Albers
-    epsg = 3577
+    # print("shapefile exported: ", file_export)
+    # print(prime_temp_buffer_dir)
+    # print("zone: ", zone)
+    # print(type(zone))
+    if zone == "2":
+        #print("zone: ", zone)
 
-    # Project allometry_biomass_gdf to WGSz52.
-    crs_name, crs_output, projected_df = projection_file_name_fn(epsg, geo_df2)
+        # set epsg to WGSz52.
+        epsg = 32752
 
-    # Apply a 1ha square buffer to each point.
-    buffer_temp_dir = square_buffer_fn(projected_df, prime_temp_buffer_dir, crs_name)
+        # Project allometry_biomass_gdf to WGSz52.
+        crs_name, crs_output, projected_df = projection_file_name_fn(epsg, geo_df2)
+        # print(projected_df)
+        # Apply a 1ha square buffer to each point.
+        buffer_temp_dir = square_buffer_fn(projected_df, prime_temp_buffer_dir, crs_name)
+        # print(buffer_temp_dir)
+        # Add attributes (SITE_NAME and PROP_CODE) to geo-DataFrame.
+        prime_temp_buffer_dir = add_site_attribute_fn(prime_temp_buffer_dir, buffer_temp_dir, crs_name)
+        # print(prime_temp_buffer_dir)
+        # Concatenate, clean and export geo_df_52
+        crs_name = 'WGS84z52'
+        geo_df, crs_name_52 = concatenate_df_fn(prime_temp_buffer_dir, export_dir_path, crs_name)
 
-    # Add attributes (SITE_NAME and PROP_CODE) to geo-DataFrame.
-    prime_temp_buffer_dir = add_site_attribute_fn(prime_temp_buffer_dir, buffer_temp_dir, crs_name)
+        geo_df.to_file(os.path.join(export_dir_path, "hectare_sites_{0}.shp".format(crs_name)), driver="ESRI Shapefile")
 
-    # Concatenate, clean and export geo_df_53
-    crs_name = 'albers'
-    geo_df, crs_name_albers = concatenate_df_fn(prime_temp_buffer_dir, export_dir_path, crs_name)
+    elif zone == "3":
+        # print("zone: ", zone)
 
-    path_ = os.path.join(export_dir_path, "hectare_sites_{0}.shp".format(crs_name))
-    print("vector path_: ", path_)
-    geo_df.to_file(path_, driver="ESRI Shapefile")
+        # set epsg to WGSz52
+        epsg = 32753
+
+        # Project allometry_biomass_gdf to WGSz52.
+        crs_name, crs_output, projected_df = projection_file_name_fn(epsg, geo_df2)
+
+        # Apply a 1ha square buffer to each point.
+        buffer_temp_dir = square_buffer_fn(projected_df, prime_temp_buffer_dir, crs_name)
+
+        # Add attributes (SITE_NAME and PROP_CODE) to geo-DataFrame.
+        prime_temp_buffer_dir = add_site_attribute_fn(prime_temp_buffer_dir, buffer_temp_dir, crs_name)
+
+        # Concatenate, clean and export geo_df_53
+        crs_name = 'WGS84z53'
+        geo_df, crs_name_53 = concatenate_df_fn(prime_temp_buffer_dir, export_dir_path, crs_name)
+
+        geo_df.to_file(os.path.join(export_dir_path, "hectare_sites_{0}.shp".format(crs_name)), driver="ESRI Shapefile")
+
+    elif zone == "4":
+        #print("zone: ", zone)
+
+        # set epsg to WGSz52
+        epsg = 32754
+
+        # Project allometry_biomass_gdf to WGSz52.
+        crs_name, crs_output, projected_df = projection_file_name_fn(epsg, geo_df2)
+
+        # Apply a 1ha square buffer to each point.
+        buffer_temp_dir = square_buffer_fn(projected_df, prime_temp_buffer_dir, crs_name)
+
+        # Add attributes (SITE_NAME and PROP_CODE) to geo-DataFrame.
+        prime_temp_buffer_dir = add_site_attribute_fn(prime_temp_buffer_dir, buffer_temp_dir, crs_name)
+
+        # Concatenate, clean and export geo_df_54
+        crs_name = 'WGS84z54'
+        geo_df, crs_name_54 = concatenate_df_fn(prime_temp_buffer_dir, export_dir_path, crs_name)
+
+        geo_df.to_file(os.path.join(export_dir_path, "hectare_sites_{0}.shp".format(crs_name)), driver="ESRI Shapefile")
 
     return geo_df, crs_name
+
 
 if __name__ == '__main__':
     main_routine()

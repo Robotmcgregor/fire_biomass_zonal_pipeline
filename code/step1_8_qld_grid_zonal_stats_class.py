@@ -59,6 +59,41 @@ SOFTWARE.
 ========================================================================================================
 '''
 
+
+def met_correction_fn(output_zonal_stats, var_, variable_values):
+    """ Replace specific 0 values with Null values and correct b1, b2 and b3 calculations
+    (refer to Fractional Cover metadata)
+
+    @param output_zonal_stats: dataframe object containing the Landsat tile Fractional Cover zonal stats.
+    @return: processed dataframe object containing the Landsat tile Fractional Cover zonal stats and
+    updated values.
+    """
+    print(variable_values)
+
+    output_zonal_stats['{0}_min'.format(var_)] = output_zonal_stats['{0}_min'.format(var_)].replace(0, np.nan)
+    #
+    output_zonal_stats['{0}_min'.format(var_)] = (output_zonal_stats['{0}_min'.format(var_)] * variable_values[2]) + \
+                                                 variable_values[4]
+    output_zonal_stats['{0}_max'.format(var_)] = (output_zonal_stats['{0}_max'.format(var_)] * variable_values[2]) + \
+                                                 variable_values[4]
+    output_zonal_stats['{0}_mean'.format(var_)] = (output_zonal_stats['{0}_mean'.format(var_)] * variable_values[2]) + \
+                                                  variable_values[4]
+    output_zonal_stats['{0}_med'.format(var_)] = (output_zonal_stats['{0}_med'.format(var_)] * variable_values[2]) + \
+                                                 variable_values[4]
+    output_zonal_stats['{0}_p25'.format(var_)] = (output_zonal_stats['{0}_p25'.format(var_)] * variable_values[2]) + \
+                                                 variable_values[4]
+    output_zonal_stats['{0}_p50'.format(var_)] = (output_zonal_stats['{0}_p50'.format(var_)] * variable_values[2]) + \
+                                                 variable_values[4]
+    output_zonal_stats['{0}_p75'.format(var_)] = (output_zonal_stats['{0}_p75'.format(var_)] * variable_values[2]) + \
+                                                 variable_values[4]
+    output_zonal_stats['{0}_p95'.format(var_)] = (output_zonal_stats['{0}_p95'.format(var_)] * variable_values[2]) + \
+                                                 variable_values[4]
+    output_zonal_stats['{0}_p99'.format(var_)] = (output_zonal_stats['{0}_p99'.format(var_)] * variable_values[2]) + \
+                                                 variable_values[4]
+    output_zonal_stats['{0}_range'.format(var_)] = (output_zonal_stats['{0}_range'.format(var_)] * variable_values[2]) + \
+                                                   variable_values[4]
+
+
 def project_shapefile_gcs_wgs84_fn(gcs_wgs84_dir, geo_df):
     """ Re-project a shapefile to 'GCSWGS84' to match the projection of the max_temp data.
     @param complete_tile: string object containing the Landsat tile name that was used to produce the 1ha plots.
@@ -112,8 +147,7 @@ def project_shapefile_gcs_wgs84_fn(gcs_wgs84_dir, geo_df):
 #
 #     return
 
-def apply_zonal_stats_fn(image_s, projected_shape_path, uid,
-                         datesplit_s, datesplit_e, no_data):
+def apply_zonal_stats_fn(image_s, projected_shape_path, uid, datesplit_s, datesplit_e, no_data):
 
     """
     Derive zonal stats for a list of Landsat imagery.
@@ -141,9 +175,16 @@ def apply_zonal_stats_fn(image_s, projected_shape_path, uid,
         # open the 'GCSWGS84' projected shapefile (1ha sites)
         with fiona.open(projected_shape_path) as src:
 
-            zs = zonal_stats(src, array, affine=affine, nodata=no_data,
-                             stats=['count', 'min', 'max', 'mean', 'median', 'std', 'percentile_25', 'percentile_50',
-                                    'percentile_75', 'percentile_95', 'percentile_99', 'range'], all_touched=True)
+            cmap = {1: 'Jan', 2: 'Feb', 3: 'March', 4: 'April', 5: 'May', 6: 'June',
+                    7: 'July', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'}
+            zs = zonal_stats(src, array, affine=affine, stats=['majority'],
+                             categorical=True, category_map=cmap, nodata = no_data, all_touched=True)
+
+
+
+            # zs = zonal_stats(src, array, affine=affine, nodata=no_data,
+            #                  stats=['count', 'min', 'max', 'mean', 'median', 'std', 'percentile_25', 'percentile_50',
+            #                         'percentile_75', 'percentile_95', 'percentile_99', 'range'], all_touched=True)
 
             #https://gis.stackexchange.com/questions/393413/rasterstats-zonal-statistics-does-not-ignore-nodata
             #print(zs)
@@ -163,13 +204,11 @@ def apply_zonal_stats_fn(image_s, projected_shape_path, uid,
 
             for zone in zs:
                 zone_stats = zone
-                mean = zone_stats["mean"]
-                minimum = zone_stats["min"]
-                maximum = zone_stats["max"]
+                majority = zone_stats["majority"]
 
 
                 # put the individual results in a list and append them to the zone_stats list
-                result = [mean, minimum, maximum,]  #std, med, minimum, maximum, count, percentile_25, percentile_50,
+                result = [majority, ]  #std, med, minimum, maximum, count, percentile_25, percentile_50,
                 # percentile_75, percentile_95, percentile_99, range_]
 
                 #print("Result: ", result)
@@ -193,7 +232,7 @@ def apply_zonal_stats_fn(image_s, projected_shape_path, uid,
         # join the elements in each of the lists row by row
         final_results = [siteid + zoneR + imU for siteid, zoneR, imU in
                          zip(site_id_list, zone_stats_list, image_name_list)]
-        print("final results: ", final_results)
+        print("final_results: ", final_results)
         # close the vector and raster file 
         src.close()
         srci.close()
@@ -212,13 +251,10 @@ def clean_data_frame_fn(output_list, max_temp_output_dir, data_type):  #variable
     """
 
     # convert the list to a pandas dataframe with a headers
-    headers = ['ident', 'site', 'im_date', 'mean', 'minimum', 'maximum','im_name']
+    headers = ['ident', 'site', 'im_date', 'majority', 'im_name']
     df1 = pd.DataFrame.from_records(output_list)
     print(df1)
     output_df = pd.DataFrame.from_records(output_list, columns=headers)
-    # print('output_max_temp: ', output_max_temp)
-    #variable_values = qld_dict.get(variable)
-    #met_correction_fn(output_df, var_, variable_values)
 
     variable = data_type
     output_df["d_type"] = variable
@@ -263,7 +299,7 @@ def main_routine(in_dir, out_dir, csv_list, data_type, temp_dir_path, geo_df, sh
     output_list = []
     print("out_dir: ", out_dir)
     variable_values = fire_dict.get(data_type)
-    print(variable_values)
+    print(variable_values[0])
     no_data = variable_values[0]
     #print('Var_', var_)
     #print("geo df: ", geo_df)

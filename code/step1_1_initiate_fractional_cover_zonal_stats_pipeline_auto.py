@@ -136,7 +136,7 @@ def get_cmd_args_fn():
                    default=100)
 
     p.add_argument('-fa', '--fire_analysis', help="The path to the fire analysis directory",
-                   default=r"H:\fire_footprint\fire_analysis_tile2")
+                   default=r"H:\fire_footprint\fire_analysis_tile")
 
     p.add_argument('-n', '--no_data', help="Enter the Fire no data value (i.e. -1)",
                    default=-1)
@@ -429,7 +429,7 @@ def main_routine():
     for directory in directories:
         list_of_directories.append(directory)
         print("-" * 20)
-        print("directory: ", directory)
+        print(directory)
 
         first_part, second_part = split_path_at_3th_dir(directory)
 
@@ -473,9 +473,6 @@ def main_routine():
         print("i: ", i)
         print("o:", o)
         print("data_type: ", d)
-        # import sys
-        # sys.exit()
-
 
 
         if i.endswith("no0"):
@@ -523,7 +520,7 @@ def main_routine():
         else:
             pass
 
-    #print(export_csv)
+    print(export_csv)
     export_dir_folders_fn(select_o)
 
     # import sys
